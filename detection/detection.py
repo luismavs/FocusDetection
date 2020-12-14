@@ -2,7 +2,16 @@ import cv2
 import numpy as np
 from typing import Tuple
 
-def focus_overlay(img: np.array, working_image_size=0.5e6, high_pass_size=7, countours_stop=3) -> np.array:
+def focus_overlay(img: np.array, 
+                    working_image_size=0.5e6, 
+                    high_pass_size=3,
+                    in_focus_regions=3,
+                    print_debug=False) -> np.array:
+    """ draw an overlay on top of an image to mask areas found to be in focus
+    """
+    
+    global DEBUG
+    DEBUG = print_debug
 
     #1 image pre-processing
     img_ = resize_image_if_needed(img, expected_pixels=working_image_size)
@@ -14,27 +23,29 @@ def focus_overlay(img: np.array, working_image_size=0.5e6, high_pass_size=7, cou
         img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
 
     #2 high pass filter to find high local contrast areas
-    blur = cv2.GaussianBlur(img2, (high_pass_size, high_pass_size), 0)
+    kernel_size = 2 * high_pass_size + 1 # must be odd
+    blur = cv2.GaussianBlur(img2, (kernel_size, kernel_size), 0)
     high_pass = img2 - blur + 127 * np.ones(img2.shape, np.uint8)
 
-    #cv2.imwrite('hp.jpg', high_pass)
+    if DEBUG: cv2.imwrite('hp.jpg', high_pass)
 
-    #3 get a mask
+    #3 convert contours into a mask
     overlay = mask_from_contours(high_pass)
     #cv2.imwrite('./ov.jpg', overlay)
 
-    #4 median blue averaging to remove small patches
-    #a
+    #4 median blur averaging to remove small patches
+    #a : simple
     # overlay = cv2.medianBlur(overlay, blur_size)
-    #b
+    #b > find optimal
     # find_optimal_blur_size = False
     # if find_optimal_blur_size:
     #     optimal_blur_size(overlay_sweep)
     #c
-    overlay, _ = apply_median_blur_recursively(overlay, stop_when_n_contours=countours_stop)
-    #cv2.imwrite('./ov.jpg', overlay)
+    overlay, _ = apply_median_blur_recursively(overlay, stop_when_n_contours=in_focus_regions)
+    
+    if DEBUG: cv2.imwrite('./ov.jpg', overlay)
 
-    # draw overlay
+    #5 draw overlay
     to_overlay = np.transpose((overlay == 255).nonzero())
     for pair in to_overlay:
         img3[pair[0], pair[1], 2] = (img3[pair[0], pair[1], 2] + 255) / 2.
@@ -54,7 +65,7 @@ def resize_image_if_needed(img: np.array, expected_pixels=2e6) -> np.array:
 
     return img_
 
-def optimal_blur_size(mask, max_search=301):
+def optimal_blur_size(mask, max_search=301) -> list:
     
     _,ll = apply_median_blur_recursively(mask, max_iter=max_search)
 
@@ -69,21 +80,24 @@ def optimal_blur_size(mask, max_search=301):
 
 def apply_median_blur_recursively(img: np.array, max_iter=101, step=2, stop_when_n_contours=2) -> Tuple[np.array, list]:
 
+    if max_iter % 2 != 1: # must be odd
+        max_iter += 1
     res = []
+
     for ii in range(1, max_iter, step):
         try: 
             img = cv2.medianBlur(img, ii)     # must be odd
             cnt = get_contours(img)
             res.append([ii, len(cnt)])
-            print(ii, len(cnt))
+            if DEBUG:   print(ii, len(cnt))
         except Exception as e:
-            print(f'opencv stops here {e}')
+            if DEBUG:   print(f'opencv stops here {e}')
             break
         if len(cnt) <= stop_when_n_contours:
-            print(f'limit number of {stop_when_n_contours} contours found')
+            if DEBUG:   print(f'limit number of {stop_when_n_contours} contours found')
             break
 
-    print(f'last blur size: {res[-1][0]} found {res[-1][1]} contours')
+    if DEBUG:   print(f'last blur size: {res[-1][0]} found {res[-1][1]} contours')
 
     return img, res
 

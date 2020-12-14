@@ -1,7 +1,7 @@
 import sys
 import argparse
 import logging
-import pathlib
+from  pathlib import Path
 import json
 import cv2
 
@@ -22,7 +22,7 @@ def find_images(image_paths, img_extensions=['.jpg', '.png', '.jpeg']):
     img_extensions += [i.upper() for i in img_extensions]
 
     for path in image_paths:
-        path = pathlib.Path(path)
+        path = Path(path)
 
         if path.is_file():
             if path.suffix not in img_extensions:
@@ -37,6 +37,11 @@ def find_images(image_paths, img_extensions=['.jpg', '.png', '.jpeg']):
 
     return
 
+def write_image(img, path, name, suffix):
+    imname = name.split('.')[0] + '_focus' + '.' + name.split('.')[1]
+    cv2.imwrite(str(Path(path) / imname), img)
+    return
+
 if __name__ == '__main__':
     assert sys.version_info >= (3, 6), sys.version_info
     args = parse_args()
@@ -45,7 +50,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=level)
 
     if args.save_path is not None:
-        save_path = pathlib.Path(args.save_path)
+        save_path = Path(args.save_path)
     else:
         save_path = None
 
@@ -56,19 +61,14 @@ if __name__ == '__main__':
         if image is None:
             logging.warning(f'warning! failed to read image from {image_path}; skipping!')
             continue
+        image_name = str(image_path).split('/')[-1]
+        image_path = '/'.join(str(image_path).split('/')[:-1])
+        if save_path is None:
+            save_path = str(Path(image_path))
+        else:
+            save_path = save_path
 
         logging.info(f'processing {image_path}')
-        img = focus_overlay(image)
-
-        imname_ = str(image_path).split('/')[-1]
-        impath = '/'.join(str(image_path).split('/')[:-1])
-        imname = imname_.split('.')[0] + '_focus' + '.' + imname_.split('.')[1]
-
-        if save_path is None:
-            cv2.imwrite( str(pathlib.Path(impath) / imname), img)
-        else:
-            cv2.imwrite( str(save_path / imname), img)
-
-        # if args.display:
-        #     cv2.imshow('input', image)
+        img = focus_overlay(image, in_focus_regions=3, high_pass_size=12)
+        write_image(img, save_path, image_name, '_focus')
 
