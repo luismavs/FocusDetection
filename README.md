@@ -1,10 +1,10 @@
 # Focus Detection
 
-Detects areas in focus in photos. Focus Detection works by converting the ouput of an high-pass filter to a mask.
+Detects areas in focus in photos, by searching for sharpest areas and then enlarging them. Focus Detection works by converting the ouput of an high-pass filter to a mask.
 
 ## To install
 
-This package only depends on numpy and opencv. To install the package just do 
+At the moment, the only dependencies are numpy and opencv. To install the package just do 
 
 ```
 pip install .
@@ -45,4 +45,4 @@ Experiments on 20MP images suggest values of high_pass_size=12  and in_focus_reg
 
 ## Demo
 
-![Focus Detection](https://raw.githubusercontent.com/luismavs/FocusDetection/master/docs/demo.png)
+![Focus Detection](./docs/demo.jpg)
